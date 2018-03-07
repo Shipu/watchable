@@ -2,6 +2,7 @@
 
 namespace Shipu\Watchable\Traits;
 
+use Illuminate\Support\Facades\Log;
 use Psr\Log\LoggerInterface;
 use Illuminate\Database\Eloquent\Model;
 
@@ -26,9 +27,8 @@ trait HasModelAttributes
 
                         $hookMethod = "on" . studly_case($attribute . "_attribute_{$eventName}");
                         if (method_exists($model, $hookMethod)) {
-                            $logger = app()->make(LoggerInterface::class);
                             $message = sprintf("[%s::%s]", get_class($model), $hookMethod);
-                            $logger->debug($message, compact('newValue', 'oldValue', 'model'));
+                            Log::debug($message, compact('newValue', 'oldValue', 'model'));
                             $model->$hookMethod($newValue, $oldValue);
                         }
                     }
