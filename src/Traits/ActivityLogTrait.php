@@ -13,18 +13,15 @@ trait ActivityLogTrait
             if (method_exists(static::class, $eventName)) {
                 static::$eventName(function (Model $model) use ($eventName) {
                     if (is_null($model->activityLog) || $model->activityLog) {
-                        $data = [];
-                        $data['old']   = $model->getOriginal();
-                        $data['new']   = $model->toArray();
-                        $data['changes']   = $model->getDirty();
+                        $data            = [];
+                        $data['old']     = $model->getOriginal();
+                        $data['new']     = $model->toArray();
+                        $data['changes'] = $model->getDirty();
                         $data['deleted'] = [];
 
-                       if ($eventName == 'deleted') {
+                        if ($eventName == 'deleted') {
                             $data['deleted'] = $model->getOriginal();
                         }
-
-                        dd($model->getLocal());
-
                         app(ActivityLogger::class)->event($eventName)
                             ->on($model)
                             ->data($data)

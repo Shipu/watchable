@@ -3,7 +3,6 @@
 namespace Shipu\Watchable\Traits;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Auth;
 
 trait HasAuditColumn
 {
@@ -17,49 +16,18 @@ trait HasAuditColumn
         }
 
         static::getHasAuditColumnModelEvents()->each(function ($evenName) {
-            static::$evenName(function (Model $model ) use($evenName) {
-                if(is_null($model->auditColumn)) $model->defaultAuditColumn();
+            static::$evenName(function (Model $model) use ($evenName) {
+                if (is_null($model->auditColumn)) {
+                    $model->defaultAuditColumn();
+                }
                 if ($model->auditColumn) {
-                    if($evenName == 'creating') {
+                    if ($evenName == 'creating') {
                         $model->setAuditColumn(config('watchable.audit_columns.creator_column'));
                     }
                     $model->setAuditColumn(config('watchable.audit_columns.editor_column'));
                 }
             });
         });
-//        static::creating(function ( $model ) {
-//            if(is_null($model->auditColumn)) $model->defaultAuditColumn();
-//            if ($model->auditColumn) {
-//                $model->setAuditColumn(config('watchable.audit_columns.creator_column'));
-//                $model->setAuditColumn(config('watchable.audit_columns.editor_column'));
-//            }
-//        });
-
-//        static::updating(function ( $model ) {
-//            if(is_null($model->auditColumn)) $model->defaultAuditColumn();
-//            if ($model->auditColumn) {
-//                $model->setAuditColumn(config('watchable.audit_columns.editor_column'));
-//            }
-//        });
-//
-//        static::deleting(function ( $model ) {
-//            if(is_null($model->auditColumn)) $model->defaultAuditColumn();
-//            if ($model->auditColumn) {
-//                $model->setAuditColumn(config('watchable.audit_columns.editor_column'));
-//            }
-//        });
-    }
-
-    public function setAuditColumn($attribute) {
-        if (auth()->check()) {
-            $this->{"{$attribute}_id"} = auth()->user()->id;
-            $this->{"{$attribute}_type"} = get_class(auth()->user());    
-        }
-    }
-
-    public function defaultAuditColumn()
-    {
-        return $this->auditColumn = config('watchable.audit_columns.default_active');
     }
 
     /**
@@ -76,7 +44,20 @@ trait HasAuditColumn
         return collect([
             'creating',
             'updating',
-            'deleting'
+            'deleting',
         ]);
+    }
+
+    public function setAuditColumn($attribute)
+    {
+        if (auth()->check()) {
+            $this->{"{$attribute}_id"}   = auth()->user()->id;
+            $this->{"{$attribute}_type"} = get_class(auth()->user());
+        }
+    }
+
+    public function defaultAuditColumn()
+    {
+        return $this->auditColumn = config('watchable.audit_columns.default_active');
     }
 }

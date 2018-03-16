@@ -5,11 +5,9 @@ namespace Shipu\Watchable\Utility;
 use Shipu\Watchable\Models\Activity;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\QueryException;
-use Illuminate\Support\Traits\Macroable;
 
 class ActivityLogger
 {
-    use Macroable;
 
     protected $enableLog;
 
@@ -67,6 +65,7 @@ class ActivityLogger
 
         try {
             $activity->save();
+
             return $activity;
         } catch (QueryException $e) {
             return isset($e->errorInfo[2]) ? $e->errorInfo[2] : $e->getMessage();

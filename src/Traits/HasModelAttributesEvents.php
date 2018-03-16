@@ -3,10 +3,9 @@
 namespace Shipu\Watchable\Traits;
 
 use Illuminate\Support\Facades\Log;
-use Psr\Log\LoggerInterface;
 use Illuminate\Database\Eloquent\Model;
 
-trait HasModelAttributes
+trait HasModelAttributesEvents
 {
     /**
      * Automatically boot with Model, and register Events handler.
@@ -28,7 +27,7 @@ trait HasModelAttributes
                         $hookMethod = "on" . studly_case($attribute . "_attribute_{$eventName}");
                         if (method_exists($model, $hookMethod)) {
                             $message = sprintf("[%s::%s]", get_class($model), $hookMethod);
-                            Log::debug($message, compact('newValue', 'oldValue', 'model'));
+                            Log::info($message, compact('newValue', 'oldValue', 'model'));
                             $model->$hookMethod($newValue, $oldValue);
                         }
                     }

@@ -4,13 +4,13 @@ namespace Shipu\Watchable\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Shipu\Watchable\Traits\HasAuditColumn;
-use Shipu\Watchable\Traits\HasModelAttributes;
+use Shipu\Watchable\Traits\HasModelAttributesEvents;
 use Shipu\Watchable\Traits\HasModelEvents;
 use Shipu\Watchable\Traits\WatchableTrait;
 
 class Activity extends Model
 {
-    use HasModelAttributes;
+    use HasModelAttributesEvents;
 
     protected $table = 'activity_logs';
 
@@ -24,19 +24,23 @@ class Activity extends Model
 
     public $activityLog = false;
 
-//    public function getChangesAttribute()
-//    {
-//        return collect($this->data['dirty']);
-//    }
-//
-//    public function getOldAttribute()
-//    {
-//        return collect($this->data['old']);
-//    }
+    public function getModelAttribute()
+    {
+        return $this->model_type::find($this->model_id);
+    }
+
+    public function getChangesAttribute()
+    {
+        return collect($this->data['changes']);
+    }
+
+    public function getOldAttribute()
+    {
+        return collect($this->data['old']);
+    }
 
     public function onDataAttributeSaving($newValue, $oldValue)
     {
-        dump($newValue);
-        dd($oldValue);
+
     }
 }
