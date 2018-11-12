@@ -17,7 +17,7 @@ trait HasAuditColumn
 
         static::getHasAuditColumnModelEvents()->each(function ($evenName) {
             static::$evenName(function (Model $model) use ($evenName) {
-                if ($model->defaultAuditColumn() || !blank($model->auditColumn)) {
+                if ($model->defaultAuditColumn() || (!blank($model->auditColumn) && $model->auditColumn)) {
                     if ($evenName == 'creating') {
                         $model->setAuditColumn(config('watchable.audit_columns.creator_column'));
                     }
