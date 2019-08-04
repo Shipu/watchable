@@ -8,5 +8,5 @@ use Illuminate\Database\Schema\Blueprint;
  * @return void
  */
 Blueprint::macro('foreignInteger', function ($localColumnName, $foreignTable, $foreignPrimaryColumn = 'id', $nullable = false, $index = true, $cascades = null) {
-    $this->foreignColumn('unsignedInteger', $localColumnName, $foreignTable, $foreignPrimaryColumn, $nullable, $index, $cascades);
+    return $this->foreignColumn('unsignedInteger', $localColumnName, $foreignTable, $foreignPrimaryColumn, $nullable, $index, $cascades);
 });
