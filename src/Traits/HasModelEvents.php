@@ -17,7 +17,7 @@ trait HasModelEvents
             if (method_exists(static::class, $eventName)) {
                 static::$eventName(function (Model $model) use ($eventName) {
                     $reflect = new ReflectionClass($model);
-                    Event::fire(strtolower($reflect->getShortName()) . '.' . $eventName, $model);
+                    Event::dispatch(strtolower($reflect->getShortName()) . '.' . $eventName, $model);
                     $method = 'on' . studly_case('model_' . $eventName);
                     if (method_exists($model, $method)) {
                         $model->$method();
