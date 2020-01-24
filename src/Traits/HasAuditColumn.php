@@ -11,7 +11,7 @@ trait HasAuditColumn
      */
     protected static function bootHasAuditColumn()
     {
-        $auth = auth()->guard(static::getConfig('guard'));
+        $auth = auth()->guard(static::getAuditColumnsConfig('guard'));
 
         if ($auth->guest()) {
             return;
@@ -19,11 +19,11 @@ trait HasAuditColumn
 
         static::getHasAuditColumnModelEvents()->each(function ($evenName) use ($auth) {
             static::$evenName(function (Model $model) use ($evenName, $auth) {
-                if ($model->getConfig('default_active') || (!blank($model->auditColumn) && $model->auditColumn)) {
+                if ($model->getAuditColumnsConfig('default_active') || (!blank($model->auditColumn) && $model->auditColumn)) {
                     if ($evenName == 'creating') {
-                        $model->setAuditColumn($auth, $model->getConfig('creator_column'));
+                        $model->setAuditColumn($auth, $model->getAuditColumnsConfig('creator_column'));
                     }
-                    $model->setAuditColumn($auth, $model->getConfig('editor_column'));
+                    $model->setAuditColumn($auth, $model->getAuditColumnsConfig('editor_column'));
                 }
             });
         });
@@ -34,7 +34,7 @@ trait HasAuditColumn
      *
      * @return array|string
      */
-    protected static function getConfig($key = null)
+    protected static function getAuditColumnsConfig($key = null)
     {
         if (! is_null($key)) {
             return config('watchable.audit_columns.' . $key);
