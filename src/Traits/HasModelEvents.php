@@ -5,6 +5,7 @@ namespace Shipu\Watchable\Traits;
 use ReflectionClass;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Str;
 
 trait HasModelEvents
 {
@@ -18,7 +19,7 @@ trait HasModelEvents
                 static::$eventName(function (Model $model) use ($eventName) {
                     $reflect = new ReflectionClass($model);
                     Event::dispatch(strtolower($reflect->getShortName()) . '.' . $eventName, $model);
-                    $method = 'on' . studly_case('model_' . $eventName);
+                    $method = 'on' . Str::studly('model_' . $eventName);
                     if (method_exists($model, $method)) {
                         $model->$method();
                     }
