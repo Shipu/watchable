@@ -10,7 +10,7 @@ trait HasModelAttributesEvents
     /**
      * Automatically boot with Model, and register Events handler.
      */
-    protected static function bootHasModelAttributes()
+    protected static function bootHasModelAttributesEvents()
     {
         static::getAttributesModelEvents()->each(function ($eventName) {
             if (method_exists(static::class, $eventName)) {
