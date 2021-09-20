@@ -4,6 +4,7 @@ namespace Shipu\Watchable\Traits;
 
 use Illuminate\Support\Facades\Log;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 
 trait HasModelAttributesEvents
 {
@@ -24,7 +25,7 @@ trait HasModelAttributesEvents
                             $oldValue = $model->castAttribute($attribute, $oldValue);
                         }
 
-                        $hookMethod = "on" . studly_case($attribute . "_attribute_{$eventName}");
+                        $hookMethod = "on" . Str::studly($attribute . "_attribute_{$eventName}");
                         if (method_exists($model, $hookMethod)) {
                             $message = sprintf("[%s::%s]", get_class($model), $hookMethod);
                             Log::info($message, compact('newValue', 'oldValue', 'model'));
