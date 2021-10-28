@@ -21,10 +21,6 @@ trait HasModelAttributesEvents
                         $oldValue = $model->getOriginal($attribute);
                         $newValue = $model->getAttribute($attribute);
 
-                        if($model->hasCast($attribute)) {
-                            $oldValue = $model->castAttribute($attribute, $oldValue);
-                        }
-
                         $hookMethod = "on" . Str::studly($attribute . "_attribute_{$eventName}");
                         if (method_exists($model, $hookMethod)) {
                             $message = sprintf("[%s::%s]", get_class($model), $hookMethod);
