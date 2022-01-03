@@ -1,6 +1,18 @@
 # Watchable
 Watchable is a Laravel package where you can easily pick up laravel model event and activity log inside your application. 
 
+```
+use Shipu\Watchable\Traits\WatchableTrait;
+```
+
+```
+onModelCreating
+onModelCreated
+onModelUpdating
+onModelUpdated
+```
+
+
 The Package stores all activity in the `activity_logs` table.
 Here's a demo of how you can use it:
 ```php
