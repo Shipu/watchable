@@ -7,6 +7,13 @@ use Illuminate\Database\Eloquent\Model;
 trait HasAuditColumn
 {
     /**
+     * The model's auditColumn.
+     *
+     * @var boolean
+     */
+    protected $auditColumn = false;
+
+    /**
      * Automatically boot with Model, and register Events handler.
      */
     protected static function bootHasAuditColumn()
@@ -45,6 +52,11 @@ trait HasAuditColumn
         ]);
     }
 
+    /**
+     * Set audit in record model.
+     *
+     * @return Model
+     */
     public function setAuditColumn($attribute)
     {
         if (auth()->check()) {
@@ -53,6 +65,11 @@ trait HasAuditColumn
         }
     }
 
+    /**
+     * Is All Model Audit Column
+     *
+     * @return boolean
+     */
     public function defaultAuditColumn()
     {
         return config('watchable.audit_columns.default_active');
