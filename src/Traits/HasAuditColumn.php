@@ -7,13 +7,6 @@ use Illuminate\Database\Eloquent\Model;
 trait HasAuditColumn
 {
     /**
-     * The model's auditColumn.
-     *
-     * @var boolean
-     */
-    protected $auditColumn = false;
-
-    /**
      * Automatically boot with Model, and register Events handler.
      */
     protected static function bootHasAuditColumn()
