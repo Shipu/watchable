@@ -11,18 +11,16 @@ use Illuminate\Database\Schema\Blueprint;
 Blueprint::macro('auditColumn', function ($nullable = false, $polymorphicColumnTypeString = false) {
     if(!$nullable) {
         if($polymorphicColumnTypeString) {
-            $this->string("{$name}_id");
-            $this->string("{$name}_type");
-            $this->index(["{$name}_id", "{$name}_type"]);
+            $this->stringMorphs(config('watchable.audit_columns.creator_column'));
+            $this->stringMorphs(config('watchable.audit_columns.editor_column'));
         } else {
             $this->morphs(config('watchable.audit_columns.creator_column'));
             $this->morphs(config('watchable.audit_columns.editor_column'));
         }
     } else {
         if($polymorphicColumnTypeString) {
-            $this->string("{$name}_id")->nullable();
-            $this->string("{$name}_type")->nullable();
-            $this->index(["{$name}_id", "{$name}_type"]);
+            $this->stringMorphs(config('watchable.audit_columns.creator_column'));
+            $this->stringMorphs(config('watchable.audit_columns.editor_column'));
         } else {
             $this->nullableAuditColumn();
         }
