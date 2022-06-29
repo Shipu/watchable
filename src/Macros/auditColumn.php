@@ -8,11 +8,23 @@ use Illuminate\Database\Schema\Blueprint;
  * @param bool $nullable
  * @return void
  */
-Blueprint::macro('auditColumn', function ($nullable = false) {
+Blueprint::macro('auditColumn', function ($nullable = false, $polymorphicColumnTypeString = false) {
     if(!$nullable) {
-        $this->morphs(config('watchable.audit_columns.creator_column'));
-        $this->morphs(config('watchable.audit_columns.editor_column'));
+        if($polymorphicColumnTypeString) {
+            $this->string("{$name}_id");
+            $this->string("{$name}_type");
+            $this->index(["{$name}_id", "{$name}_type"]);
+        } else {
+            $this->morphs(config('watchable.audit_columns.creator_column'));
+            $this->morphs(config('watchable.audit_columns.editor_column'));
+        }
     } else {
-        $this->nullableAuditColumn();
+        if($polymorphicColumnTypeString) {
+            $this->string("{$name}_id")->nullable();
+            $this->string("{$name}_type")->nullable();
+            $this->index(["{$name}_id", "{$name}_type"]);
+        } else {
+            $this->nullableAuditColumn();
+        }
     }
 });
