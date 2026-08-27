@@ -141,3 +141,26 @@ test('compilePartialUnique throws on an unsupported driver instead of emitting w
     expect(fn () => $grammar->compilePartialUnique($blueprint, $command))
         ->toThrow(RuntimeException::class, 'not supported on the [MySqlGrammar] driver');
 });
+
+test('the closure form handles a boolean predicate value', function () {
+    // Regression test for a real bug: Connection::prepareBindings() converts bool to
+    // (int) before escaping, which is correct for a real PDO bindValue() call but
+    // wrong for raw SQL inlining — Postgres has no `boolean = integer` operator, so
+    // this failed outright against a real Postgres connection (sqlite's test
+    // connection here can't reproduce that specific failure, since sqlite has no
+    // strict boolean type and accepts `= 1` regardless; verified separately against
+    // real Postgres).
+    Schema::create('products', function (Blueprint $table) {
+        $table->id();
+        $table->string('slug');
+        $table->boolean('is_active')->default(true);
+
+        $table->partialIndex('slug', 'idx_active_slug')
+            ->where(fn ($query) => $query->where('is_active', true));
+    });
+
+    DB::table('products')->insert(['slug' => 'a', 'is_active' => true]);
+    DB::table('products')->insert(['slug' => 'a', 'is_active' => true]);
+
+    expect(DB::table('products')->count())->toBe(2);
+});
