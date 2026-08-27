@@ -260,3 +260,39 @@ bindings with `Grammar::substituteBindingsIntoRawSql()` — the same method back
 choice: naive string interpolation (or even a hand-rolled `str_replace('?', ...)`) breaks on a value
 containing a literal quote or Postgres's `?`/`??` operators; `substituteBindingsIntoRawSql()` already
 handles both correctly, so this reuses it instead of re-implementing it.
+## CHECK constraints
+
+Laravel's schema builder has no fluent support for `CHECK` constraints at all — nothing in Column
+Modifiers, no `$table->check()`. Unlike partial indexes, `CHECK` is standard, portable SQL every
+driver Laravel supports understands, so this doesn't need `partialUnique()`'s driver restriction —
+and since `check` isn't an existing Blueprint method, there's nothing to fight over `method_exists()`
+precedence with the way `->unique()->where(...)` did. A plain macro pair is enough.
+
+```php
+Schema::create('orders', function (Blueprint $table) {
+    $table->id();
+    $table->decimal('subtotal', 10, 2);
+    $table->decimal('discount_amount', 10, 2)->default(0);
+    $table->decimal('total', 10, 2);
+
+    $table->check('total = subtotal - discount_amount AND total >= 0', 'chk_total');
+});
+```
+
+The name is **required**, not auto-generated — it's meant to match whatever your schema
+documentation already calls it, the same reasoning behind every other named-index feature in this
+package.
+
+```php
+Schema::table('orders', function (Blueprint $table) {
+    $table->dropCheck('chk_total');
+});
+```
+
+Native `dropIndex()`/`dropUnique()` both assume they're dropping an index; on Postgres that compiles
+to `drop index`, which fails against a real table constraint (`"chk_total" is not an index`).
+`dropCheck()` is the matching counterpart, compiling to `alter table ... drop constraint ...`.
+
+Verified enforced (not silently ignored) on both pgsql and sqlite — including SQLite, where
+`ALTER TABLE ... ADD CONSTRAINT ... CHECK (...)` genuinely works and is enforced, despite SQLite's
+famously limited `ALTER TABLE` support elsewhere.
