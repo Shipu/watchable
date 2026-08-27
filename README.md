@@ -111,6 +111,8 @@ as a package instead, so here it is.
 Supported on **pgsql and sqlite only** (both compile the same `where` syntax). Throws a
 `RuntimeException` on mysql/sqlsrv rather than emit incorrect SQL.
 
+Declared fluently, inside the `Schema::create()` closure, right alongside the column it applies to:
+
 ```php
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -118,22 +120,55 @@ use Illuminate\Support\Facades\Schema;
 Schema::create('products', function (Blueprint $table) {
     $table->id();
     $table->string('slug');
+    $table->string('status');
+    $table->integer('position');
     $table->softDeletes();
+
+    // Unique only among non-deleted rows — reusable after a soft delete.
+    $table->partialUnique('slug', 'uniq_products_slug', 'deleted_at is null');
+
+    // Non-unique conditional index.
+    $table->partialIndex(['status', 'position'], 'idx_products_listing', 'deleted_at is null');
 });
-
-// Unique only among non-deleted rows — reusable after a soft delete.
-Schema::partialUnique('products', 'slug', 'uniq_products_slug', 'deleted_at is null');
-
-// Non-unique conditional index.
-Schema::partialIndex('products', ['status', 'position'], 'idx_products_listing', 'deleted_at is null');
 ```
 
-Drop them the same way you'd drop any index:
+Drop them the same way you'd drop any index — no special method needed, `dropIndex()` already
+works for a partial index by name:
 
 ```php
-Schema::dropPartialUnique('uniq_products_slug');
-Schema::dropPartialIndex('idx_products_listing');
+Schema::table('products', function (Blueprint $table) {
+    $table->dropIndex('uniq_products_slug');
+});
 ```
 
 The `$whereRaw` argument is raw SQL, not parameterized — build it from fixed strings in your
 migration, never from user input.
+
+### How this works without touching Laravel core
+
+This needs two macros, not one, because of how `Schema::create()` actually executes:
+
+1. **`Blueprint::macro('partialUnique', ...)`** — called inside the closure, it just queues a
+   command via `$this->addCommand(...)`, exactly like Laravel's own `$table->unique()` does. The
+   `CREATE TABLE` statement is *also* just a queued command at this point (added first, before your
+   closure runs) — nothing has hit the database yet.
+2. **`Grammar::macro('compilePartialUnique', ...)`** — Laravel dispatches each queued command to SQL
+   via `$grammar->{'compile'.ucfirst($command->name)}(...)`, checked with
+   `method_exists(...) || $grammar::hasMacro(...)`. Registering a `compilePartialUnique` macro on the
+   *base* `Illuminate\Database\Schema\Grammars\Grammar` class means it's picked up by that dispatch
+   exactly like a real compiler method, for every driver — the driver subclasses don't redeclare the
+   `Macroable` trait, so macro storage is shared across all of them (verified: registering a macro on
+   `PostgresGrammar` makes `MySqlGrammar::hasMacro(...)` true too). That's *why* the compiler macro
+   does its own `instanceof PostgresGrammar || instanceof SQLiteGrammar` check and throws otherwise,
+   rather than being "not registered" for unsupported drivers.
+
+Execution order is safe because `Schema::create()` always queues the `create` command before running
+your closure (`$blueprint->create(); $callback($blueprint);`), and `Blueprint::build()` executes each
+compiled statement in queue order — so by the time `compilePartialUnique`'s `CREATE INDEX` statement
+runs, `CREATE TABLE` has already run on the connection.
+
+A **Blueprint-only** macro can't do this on its own: even if it queued a command, Blueprint has no
+way to teach `PostgresGrammar`/`SQLiteGrammar` a new `compilePartialUnique` method — that dispatch is
+a hardcoded method lookup on the grammar class, which is exactly why the 3 rejected upstream PRs had
+to edit `PostgresGrammar.php`/`SQLiteGrammar.php`/`SqlServerGrammar.php` directly instead of shipping
+as a package. Grammar macros are the loophole that makes a package-only implementation possible.

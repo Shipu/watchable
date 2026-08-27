@@ -1,57 +1,63 @@
 <?php
 
-use Illuminate\Database\Schema\Builder;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Database\Schema\Grammars\Grammar;
+use Illuminate\Database\Schema\Grammars\PostgresGrammar;
+use Illuminate\Database\Schema\Grammars\SQLiteGrammar;
+use Illuminate\Support\Fluent;
 
 /**
- * Create a unique index limited to rows matching a predicate (e.g. soft-delete-aware
- * uniqueness: `deleted_at is null`). Laravel's fluent schema builder has no native way
- * to express this — see https://github.com/laravel/framework/pull/61007, closed unmerged.
+ * Fluent, in-the-closure partial unique index — an index limited to rows matching a
+ * predicate (e.g. soft-delete-aware uniqueness: `deleted_at is null`). Laravel's schema
+ * builder has no native way to express this — see
+ * https://github.com/laravel/framework/pull/61007, closed unmerged (Taylor Otwell:
+ * "consider releasing your code as a package").
  *
- * Supported on pgsql and sqlite only; both compile the same `where` syntax. mysql and
- * sqlsrv don't support this the same way, so this throws rather than emit wrong SQL.
+ * Queues a command the same way $table->unique()/index() do; the matching
+ * compilePartialUnique() grammar macro (registered below) turns it into SQL.
  *
- * @param  string  $table
+ * Usage:
+ *   Schema::create('products', function (Blueprint $table) {
+ *       $table->string('slug');
+ *       $table->softDeletes();
+ *       $table->partialUnique('slug', 'uniq_products_slug', 'deleted_at is null');
+ *   });
+ *
  * @param  string|array<int, string>  $columns
  * @param  string  $indexName
- * @param  string  $whereRaw  Raw SQL predicate, e.g. "deleted_at is null". Not parameterized —
- *                            callers must not interpolate untrusted input into this string.
- * @return void
+ * @param  string  $whereRaw  Raw SQL predicate. Not parameterized — build it from fixed
+ *                            strings in your migration, never from user input.
+ * @return \Illuminate\Support\Fluent
  */
-Builder::macro('partialUnique', function (string $table, string|array $columns, string $indexName, string $whereRaw) {
-    /** @var \Illuminate\Database\Schema\Builder $this */
-    $connection = $this->getConnection();
-    $driver = $connection->getDriverName();
-
-    if (! in_array($driver, ['pgsql', 'sqlite'], true)) {
-        throw new \RuntimeException(
-            "partialUnique() is not supported on the [{$driver}] driver — only pgsql and sqlite support partial indexes."
-        );
-    }
-
-    $grammar = $connection->getSchemaGrammar();
-
-    $columnList = collect((array) $columns)
-        ->map(fn (string $column) => $grammar->wrap($column))
-        ->implode(', ');
-
-    $wrappedTable = $grammar->wrapTable($table);
-    $wrappedIndex = $grammar->wrap($indexName);
-
-    DB::statement("create unique index {$wrappedIndex} on {$wrappedTable} ({$columnList}) where {$whereRaw}");
+Blueprint::macro('partialUnique', function (string|array $columns, string $indexName, string $whereRaw) {
+    /** @var \Illuminate\Database\Schema\Blueprint $this */
+    return $this->addCommand('partialUnique', [
+        'index' => $indexName,
+        'columns' => (array) $columns,
+        'where' => $whereRaw,
+    ]);
 });
 
 /**
- * Drop a partial unique index created via partialUnique(). A plain `dropUnique()` /
- * `dropIndex()` on the Blueprint won't find it on pgsql once it's a genuine partial
- * index rather than a unique constraint, so this is the matching counterpart.
- *
- * @param  string  $indexName
- * @return void
+ * Grammar macros are stored on one shared array (only the base Grammar class uses the
+ * Macroable trait — subclasses don't redeclare it), so registering this once makes it
+ * available on every driver's grammar. The instanceof check below is what actually
+ * limits support to pgsql/sqlite; it throws for everything else rather than emit wrong
+ * SQL. This is why it's registered on the base Grammar class, not PostgresGrammar.
  */
-Builder::macro('dropPartialUnique', function (string $indexName) {
-    /** @var \Illuminate\Database\Schema\Builder $this */
-    $grammar = $this->getConnection()->getSchemaGrammar();
+Grammar::macro('compilePartialUnique', function (Blueprint $blueprint, Fluent $command) {
+    /** @var \Illuminate\Database\Schema\Grammars\Grammar $this */
+    if (! ($this instanceof PostgresGrammar || $this instanceof SQLiteGrammar)) {
+        throw new \RuntimeException(sprintf(
+            'partialUnique() is not supported on the [%s] driver — only pgsql and sqlite support partial indexes.',
+            class_basename($this)
+        ));
+    }
 
-    DB::statement('drop index '.$grammar->wrap($indexName));
+    return sprintf('create unique index %s on %s (%s) where %s',
+        $this->wrap($command->index),
+        $this->wrapTable($blueprint),
+        $this->columnize($command->columns),
+        $command->where
+    );
 });
