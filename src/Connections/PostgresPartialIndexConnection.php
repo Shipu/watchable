@@ -3,7 +3,7 @@
 namespace Shipu\Watchable\Connections;
 
 use Illuminate\Database\PostgresConnection;
-use Illuminate\Database\Schema\Builder as SchemaBuilder;
+use Illuminate\Database\Schema\PostgresBuilder;
 use Shipu\Watchable\Schema\Grammars\PostgresPartialIndexGrammar;
 use Shipu\Watchable\Schema\PartialIndexBlueprint;
 
@@ -30,7 +30,7 @@ class PostgresPartialIndexConnection extends PostgresConnection
             $this->useDefaultSchemaGrammar();
         }
 
-        $builder = new SchemaBuilder($this);
+        $builder = new PostgresBuilder($this);
 
         $builder->blueprintResolver(fn ($connection, $table, $callback = null) => new PartialIndexBlueprint($connection, $table, $callback));
 

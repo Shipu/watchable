@@ -2,7 +2,7 @@
 
 namespace Shipu\Watchable\Connections;
 
-use Illuminate\Database\Schema\Builder as SchemaBuilder;
+use Illuminate\Database\Schema\SQLiteBuilder;
 use Illuminate\Database\SQLiteConnection;
 use Shipu\Watchable\Schema\Grammars\SQLitePartialIndexGrammar;
 use Shipu\Watchable\Schema\PartialIndexBlueprint;
@@ -24,7 +24,7 @@ class SQLitePartialIndexConnection extends SQLiteConnection
             $this->useDefaultSchemaGrammar();
         }
 
-        $builder = new SchemaBuilder($this);
+        $builder = new SQLiteBuilder($this);
 
         $builder->blueprintResolver(fn ($connection, $table, $callback = null) => new PartialIndexBlueprint($connection, $table, $callback));
 

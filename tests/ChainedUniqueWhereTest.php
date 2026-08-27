@@ -84,3 +84,15 @@ test('the original $table->partialUnique(...) macro still works after the connec
 
     expect(DB::table('products')->count())->toBe(2);
 });
+
+test('the driver-specific schema builder (e.g. dropAllTables) is preserved, not swapped for a generic one', function () {
+    Schema::create('products', function (Blueprint $table) {
+        $table->id();
+        $table->string('slug')->unique()->where(fn ($query) => $query->whereNull('deleted_at'));
+        $table->timestamp('deleted_at')->nullable();
+    });
+
+    Schema::dropAllTables();
+
+    expect(Schema::hasTable('products'))->toBeFalse();
+});
