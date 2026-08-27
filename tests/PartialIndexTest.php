@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Database\Query\Expression;
 use Illuminate\Database\QueryException;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Schema\Grammars\MySqlGrammar;
@@ -122,13 +123,20 @@ test('the closure form inlines bindings safely for a value containing a literal 
     expect(DB::table('products')->where('name', "O'Brien's Shop")->count())->toBe(1);
 });
 
-test('compilePartialUnique throws when no predicate is supplied at all', function () {
-    expect(fn () => Schema::create('products', function (Blueprint $table) {
+test('partialUnique() with no predicate creates a plain unique index, not a table constraint', function () {
+    Schema::create('topics', function (Blueprint $table) {
         $table->id();
+        $table->unsignedBigInteger('parent_id')->nullable();
         $table->string('slug');
 
-        $table->partialUnique('slug', 'uniq_products_slug');
-    }))->toThrow(RuntimeException::class, 'needs a predicate');
+        $table->partialUnique([new Expression('COALESCE(parent_id, 0)'), 'slug'], 'uniq_topic_slug_per_parent');
+    });
+
+    DB::table('topics')->insert(['parent_id' => null, 'slug' => 'a']);
+    DB::table('topics')->insert(['parent_id' => 1, 'slug' => 'a']);
+
+    expect(fn () => DB::table('topics')->insert(['parent_id' => null, 'slug' => 'a']))
+        ->toThrow(QueryException::class);
 });
 
 test('compilePartialUnique throws on an unsupported driver instead of emitting wrong SQL', function () {
