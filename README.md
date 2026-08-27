@@ -111,6 +111,14 @@ as a package instead, so here it is.
 Supported on **pgsql and sqlite only** (both compile the same `where` syntax). Throws a
 `RuntimeException` on mysql/sqlsrv rather than emit incorrect SQL.
 
+**IDE autocomplete**: since these methods are added at runtime (macros, and — for the chained
+`->unique()->where(...)` form — a class swap your IDE can't see statically), plain PHP static
+analysis won't know about them and will flag `Method 'where' not found`. The package ships
+`_ide_helper_watchable.php` at its root for exactly this — the same stub technique
+[barryvdh/laravel-ide-helper](https://github.com/barryvdh/laravel-ide-helper) uses. Most IDEs
+(PhpStorm included) index it automatically once the package is installed; no extra dependency or
+config needed. It's inert — never `require`d, not in the autoload map, purely for the IDE to read.
+
 ### Chained directly onto Laravel's own `unique()` / `index()`
 
 ```php
