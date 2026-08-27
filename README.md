@@ -166,6 +166,7 @@ appending is safe there.) Verified against a real Postgres database, not just SQ
 Three ways to supply the predicate:
 
 ```php
+use Illuminate\Database\Query\Expression;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
@@ -191,6 +192,11 @@ Schema::create('products', function (Blueprint $table) {
     // Non-unique conditional index — same three forms.
     $table->partialIndex(['status', 'position'], 'idx_products_listing')
         ->where(fn ($query) => $query->whereNull('deleted_at'));
+
+    // No predicate at all — still compiles as `create unique index`, never as a table
+    // CONSTRAINT, so (unlike Laravel's native ->unique()) it accepts expressions:
+    // Postgres constraint syntax only allows plain column names, no exceptions.
+    $table->partialUnique([new Expression('COALESCE(parent_id, 0)'), 'slug'], 'uniq_topic_slug_per_parent');
 });
 ```
 

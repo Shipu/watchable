@@ -8,13 +8,22 @@ use Illuminate\Support\Fluent;
 use Shipu\Watchable\Support\PartialIndexWhere;
 
 /**
- * Fluent, in-the-closure partial unique index — an index limited to rows matching a
- * predicate (e.g. soft-delete-aware uniqueness: `deleted_at is null`). Laravel's schema
- * builder has no native way to express this — see
- * https://github.com/laravel/framework/pull/61007, closed unmerged (Taylor Otwell:
- * "consider releasing your code as a package").
+ * Fluent, in-the-closure unique index — always compiled as `create unique index`, never
+ * `alter table ... add constraint ... unique (...)`. That distinction is what this macro
+ * is actually for: Postgres table CONSTRAINT syntax only accepts plain column names, so
+ * Laravel's native `$table->unique(...)` cannot express a unique index over an
+ * expression (`COALESCE(parent_id, 0)`, `upper(code)`, ...) at all — regardless of
+ * whether a predicate is involved. `partialUnique()` covers both that case and the one
+ * it was originally built for: an index limited to rows matching a predicate (e.g.
+ * soft-delete-aware uniqueness, `deleted_at is null`) — Laravel has no native way to
+ * express that either. See https://github.com/laravel/framework/pull/61007, closed
+ * unmerged (Taylor Otwell: "consider releasing your code as a package").
  *
- * Three ways to supply the predicate — pick whichever reads best:
+ * No predicate — plain expression-based uniqueness:
+ *
+ *   $table->partialUnique([new Expression('COALESCE(parent_id, 0)'), 'slug'], 'uniq_topic_slug_per_parent');
+ *
+ * Three ways to supply a predicate — pick whichever reads best:
  *
  *   $table->partialUnique('slug', 'uniq_products_slug', 'deleted_at is null');
  *   $table->partialUnique('slug', 'uniq_products_slug')->where('deleted_at is null');
@@ -34,7 +43,8 @@ use Shipu\Watchable\Support\PartialIndexWhere;
  * @param  string|array<int, string>  $columns
  * @param  string  $indexName
  * @param  string|Closure(\Illuminate\Database\Query\Builder): mixed|null  $where  Optional —
- *         may be supplied here or via ->where() chained onto the returned command.
+ *         may be supplied here or via ->where() chained onto the returned command. Omit
+ *         entirely for a plain (non-partial) unique index — e.g. over an expression.
  * @return \Illuminate\Support\Fluent
  */
 Blueprint::macro('partialUnique', function (string|array $columns, string $indexName, string|Closure|null $where = null) {
@@ -62,16 +72,10 @@ Grammar::macro('compilePartialUnique', function (Blueprint $blueprint, Fluent $c
         ));
     }
 
-    if (is_null($command->where)) {
-        throw new RuntimeException('partialUnique() needs a predicate — pass it as the 3rd argument or chain ->where(...).');
-    }
-
-    $whereSql = PartialIndexWhere::resolve($this->connection, $command->where);
-
-    return sprintf('create unique index %s on %s (%s) where %s',
+    return sprintf('create unique index %s on %s (%s)%s',
         $this->wrap($command->index),
         $this->wrapTable($blueprint),
         $this->columnize($command->columns),
-        $whereSql
+        is_null($command->where) ? '' : ' where '.PartialIndexWhere::resolve($this->connection, $command->where)
     );
 });
