@@ -299,31 +299,8 @@ famously limited `ALTER TABLE` support elsewhere.
 
 ## Raw-type columns
 
-Laravel's `Blueprint` has a method for every common column type, but nothing for a type it doesn't
-know about: Postgres extension types (`ltree`, `citext`, `vector`, ...), array types (`bigint[]`,
-`text[]`, ...), or even a bare unscaled `numeric` — Laravel's own `decimal()` always emits
-`numeric(total, places)`, never plain `numeric`.
-
-```php
-Schema::create('topics', function (Blueprint $table) {
-    $table->id();
-    $table->rawType('path', 'ltree');
-});
-
-Schema::create('user_exam_presets', function (Blueprint $table) {
-    $table->id();
-    $table->rawType('topic_ids', 'bigint[]')->default('{}');
-});
-```
-
-The type string is inserted verbatim into the compiled DDL, so build it from a fixed string in your
-migration, never from user input. Every column modifier (`->nullable()`, `->default()`, `->unique()`,
-...) still works — they're applied by Laravel's own `addModifiers()` the same way for every column
-type, regardless of how that type's SQL was produced.
-
-Laravel's escape hatch for arbitrary types is already public API: `$table->addColumn($type, $name,
-$parameters)` stores whatever `$parameters` you pass on the resulting `ColumnDefinition`, then
-dispatches compilation via a dynamic method call to `type{Ucfirst($type)}()` on the grammar. Nothing
-named `typeRaw` exists on any grammar class, so — same mechanism `check()` and `partialUnique()`
-already rely on — Macroable's `__call` fallback catches it. `rawType()` is sugar over
-`addColumn('raw', $name, ['sqlType' => $sqlType])` so call sites don't need to know that plumbing.
+Not a gap this package needs to fill — Laravel's own `Blueprint` already has an escape hatch for
+column types it has no method for (Postgres extension types like `ltree`, array types like
+`bigint[]`, a bare unscaled `numeric`): `$table->rawColumn($name, $definition)`. Its `typeRaw()` is a
+real method on `Grammar` (not something to macro), so use that directly — no watchable API needed
+here.
