@@ -2,10 +2,13 @@
 
 namespace Shipu\Watchable;
 
+use Illuminate\Database\Connection;
 use Illuminate\Support\Collection;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Foundation\Application as LaravelApplication;
 use Laravel\Lumen\Application as LumenApplication;
+use Shipu\Watchable\Connections\PostgresPartialIndexConnection;
+use Shipu\Watchable\Connections\SQLitePartialIndexConnection;
 
 class WatchableServiceProvider extends ServiceProvider
 {
@@ -31,6 +34,23 @@ class WatchableServiceProvider extends ServiceProvider
     public function register()
     {
         $this->publishConfig();
+        $this->registerPartialIndexConnections();
+    }
+
+    /**
+     * Swap pgsql/sqlite connections for ones supporting
+     * $table->string(...)->unique()->where(...) / ->index()->where(...).
+     * See config/watchable.php's `partial_indexes` block for what this actually does.
+     */
+    protected function registerPartialIndexConnections(): void
+    {
+        if (! config('watchable.partial_indexes.enabled', true)) {
+            return;
+        }
+
+        Connection::resolverFor('pgsql', fn ($connection, $database, $prefix, $config) => new PostgresPartialIndexConnection($connection, $database, $prefix, $config));
+
+        Connection::resolverFor('sqlite', fn ($connection, $database, $prefix, $config) => new SQLitePartialIndexConnection($connection, $database, $prefix, $config));
     }
 
     /**

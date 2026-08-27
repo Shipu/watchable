@@ -111,7 +111,50 @@ as a package instead, so here it is.
 Supported on **pgsql and sqlite only** (both compile the same `where` syntax). Throws a
 `RuntimeException` on mysql/sqlsrv rather than emit incorrect SQL.
 
-Declared fluently, inside the `Schema::create()` closure, right alongside the column it applies to.
+### Chained directly onto Laravel's own `unique()` / `index()`
+
+```php
+Schema::create('products', function (Blueprint $table) {
+    $table->id();
+    $table->string('slug')->unique()->where(fn ($query) => $query->whereNull('deleted_at'));
+    $table->string('status');
+    $table->boolean('is_active')->default(true);
+    $table->index('status')->where(fn ($query) => $query->where('is_active', true));
+});
+```
+
+Plain `->unique()`/`->index()` with no `->where()` chained behaves **exactly** like stock Laravel —
+this doesn't change anything about columns that don't opt in.
+
+This needs more than a macro pair (see the "How this works" sections below): Laravel's own
+`$table->string('slug')->unique()` doesn't create a real command at the point you call it — it just
+sets a flag, silently promoted into a real index command *after* the whole `Schema::create()` closure
+finishes, by which point there's nothing left to chain `->where(...)` onto. Making that chain actually
+work requires:
+
+- Swapping `Blueprint`'s column-definition class so `->unique()`/`->index()` queue a real command
+  immediately (via `Schema::blueprintResolver()`)
+- Swapping the schema grammar so `compileUnique()`/`compileIndex()` know to look for a `where`
+  attribute (real method overrides — a grammar *macro* can't reach existing methods, established
+  further down)
+- Swapping the whole `Connection` class per driver (via `Connection::resolverFor()`) to actually get
+  that custom grammar used — there's no narrower hook than this
+
+That last swap is real added surface, not just more code: every query on a pgsql/sqlite connection
+now runs through a `Connection` subclass this package owns, not Laravel's own. It's opt-in via
+`config('watchable.partial_indexes.enabled')` (defaults to `true`) precisely because of that — set it
+to `false` and only the original `$table->partialUnique()`/`partialIndex()` macros remain active,
+with zero effect on `unique()`/`index()`.
+
+**Postgres-specific correctness note**: `$table->unique()` compiles to
+`alter table ... add constraint ... unique (...)` — a table *constraint*, and Postgres constraint
+syntax has no `WHERE` clause at all. Appending one would be a syntax error. So on Postgres, the
+override doesn't append to the constraint form when `->where(...)` is present — it emits
+`create unique index ... where ...` instead, the only Postgres syntax that supports a partial
+predicate. (SQLite's native `compileUnique()` is already a plain `create unique index` statement, so
+appending is safe there.) Verified against a real Postgres database, not just SQLite in CI.
+
+### Declared as its own method, inside the `Schema::create()` closure
 Three ways to supply the predicate:
 
 ```php
