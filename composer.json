@@ -14,8 +14,23 @@
                 "Shipu\\Watchable\\": "src/"
             }
         },
+    "autoload-dev": {
+        "psr-4": {
+            "Shipu\\Watchable\\Tests\\": "tests/"
+        }
+    },
     "require": {},
+    "require-dev": {
+        "orchestra/testbench": "^9.0|^10.0",
+        "pestphp/pest": "^3.0",
+        "pestphp/pest-plugin-laravel": "^3.0"
+    },
     "minimum-stability": "dev",
+    "config": {
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    },
     "extra": {
         "laravel": {
             "providers": [

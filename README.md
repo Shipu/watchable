@@ -97,3 +97,43 @@ After publishing the migration you can create the `activity_logs` table by runni
 ```bash
 php artisan migrate
 ```
+
+## Partial indexes
+
+Laravel's schema builder has no fluent way to create a partial index (an index limited to rows
+matching a `WHERE` predicate — e.g. a unique slug that's only enforced while `deleted_at is null`).
+This has been proposed upstream three times and closed unmerged each time (see
+[laravel/framework#61007](https://github.com/laravel/framework/pull/61007),
+[#61097](https://github.com/laravel/framework/pull/61097),
+[#61098](https://github.com/laravel/framework/pull/61098)) — Taylor Otwell's guidance was to ship it
+as a package instead, so here it is.
+
+Supported on **pgsql and sqlite only** (both compile the same `where` syntax). Throws a
+`RuntimeException` on mysql/sqlsrv rather than emit incorrect SQL.
+
+```php
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+Schema::create('products', function (Blueprint $table) {
+    $table->id();
+    $table->string('slug');
+    $table->softDeletes();
+});
+
+// Unique only among non-deleted rows — reusable after a soft delete.
+Schema::partialUnique('products', 'slug', 'uniq_products_slug', 'deleted_at is null');
+
+// Non-unique conditional index.
+Schema::partialIndex('products', ['status', 'position'], 'idx_products_listing', 'deleted_at is null');
+```
+
+Drop them the same way you'd drop any index:
+
+```php
+Schema::dropPartialUnique('uniq_products_slug');
+Schema::dropPartialIndex('idx_products_listing');
+```
+
+The `$whereRaw` argument is raw SQL, not parameterized — build it from fixed strings in your
+migration, never from user input.
