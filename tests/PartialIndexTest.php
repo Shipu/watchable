@@ -71,6 +71,66 @@ test('the native dropIndex() removes a partial index created via partialUnique',
     expect(DB::table('products')->count())->toBe(2);
 });
 
+test('the chained ->where(string) form behaves the same as the 3-argument form', function () {
+    Schema::create('products', function (Blueprint $table) {
+        $table->id();
+        $table->string('slug');
+        $table->timestamp('deleted_at')->nullable();
+
+        $table->partialUnique('slug', 'uniq_products_slug')->where('deleted_at is null');
+    });
+
+    DB::table('products')->insert(['slug' => 'bar-council', 'deleted_at' => now()]);
+    DB::table('products')->insert(['slug' => 'bar-council', 'deleted_at' => null]);
+
+    expect(DB::table('products')->count())->toBe(2);
+});
+
+test('the chained ->where(closure) form builds the predicate with a real query builder', function () {
+    Schema::create('products', function (Blueprint $table) {
+        $table->id();
+        $table->string('slug');
+        $table->string('status');
+        $table->timestamp('deleted_at')->nullable();
+
+        $table->partialUnique('slug', 'uniq_products_slug')
+            ->where(fn ($query) => $query->whereNull('deleted_at')->where('status', 'draft'));
+    });
+
+    // Different status — not covered by the partial index, so this duplicate is allowed.
+    DB::table('products')->insert(['slug' => 'bar-council', 'status' => 'published', 'deleted_at' => null]);
+    DB::table('products')->insert(['slug' => 'bar-council', 'status' => 'published', 'deleted_at' => null]);
+
+    // Both draft and non-deleted — this is what the index actually protects.
+    DB::table('products')->insert(['slug' => 'unique-slug', 'status' => 'draft', 'deleted_at' => null]);
+    expect(fn () => DB::table('products')->insert(['slug' => 'unique-slug', 'status' => 'draft', 'deleted_at' => null]))
+        ->toThrow(QueryException::class);
+});
+
+test('the closure form inlines bindings safely for a value containing a literal quote', function () {
+    Schema::create('products', function (Blueprint $table) {
+        $table->id();
+        $table->string('slug');
+        $table->string('name');
+
+        $table->partialUnique('slug', 'uniq_products_slug')
+            ->where(fn ($query) => $query->where('name', "O'Brien's Shop"));
+    });
+
+    DB::table('products')->insert(['slug' => 'a', 'name' => "O'Brien's Shop"]);
+
+    expect(DB::table('products')->where('name', "O'Brien's Shop")->count())->toBe(1);
+});
+
+test('compilePartialUnique throws when no predicate is supplied at all', function () {
+    expect(fn () => Schema::create('products', function (Blueprint $table) {
+        $table->id();
+        $table->string('slug');
+
+        $table->partialUnique('slug', 'uniq_products_slug');
+    }))->toThrow(RuntimeException::class, 'needs a predicate');
+});
+
 test('compilePartialUnique throws on an unsupported driver instead of emitting wrong SQL', function () {
     DB::connection()->useDefaultSchemaGrammar();
 
