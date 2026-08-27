@@ -21,7 +21,6 @@ namespace Illuminate\Database\Schema {
      * @method \Illuminate\Database\Schema\ColumnDefinition partialIndex(string|array $columns, string $indexName, string|\Closure|null $where = null) See shipu/watchable's README "Declared as its own method" section.
      * @method \Illuminate\Support\Fluent check(string $expression, string $name) Add a CHECK constraint. See shipu/watchable's README "CHECK constraints" section.
      * @method \Illuminate\Support\Fluent dropCheck(string $name) Drop a CHECK constraint added via check().
-     * @method \Illuminate\Database\Schema\ColumnDefinition rawType(string $name, string $sqlType) Add a column using an arbitrary raw SQL type. See shipu/watchable's README "Raw-type columns" section.
      */
     class Blueprint
     {
