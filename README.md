@@ -111,7 +111,8 @@ as a package instead, so here it is.
 Supported on **pgsql and sqlite only** (both compile the same `where` syntax). Throws a
 `RuntimeException` on mysql/sqlsrv rather than emit incorrect SQL.
 
-Declared fluently, inside the `Schema::create()` closure, right alongside the column it applies to:
+Declared fluently, inside the `Schema::create()` closure, right alongside the column it applies to.
+Three ways to supply the predicate:
 
 ```php
 use Illuminate\Database\Schema\Blueprint;
@@ -124,11 +125,21 @@ Schema::create('products', function (Blueprint $table) {
     $table->integer('position');
     $table->softDeletes();
 
-    // Unique only among non-deleted rows — reusable after a soft delete.
+    // 1. Raw string, 3rd argument.
     $table->partialUnique('slug', 'uniq_products_slug', 'deleted_at is null');
 
-    // Non-unique conditional index.
-    $table->partialIndex(['status', 'position'], 'idx_products_listing', 'deleted_at is null');
+    // 2. Raw string, chained.
+    $table->partialUnique('slug', 'uniq_products_slug')->where('deleted_at is null');
+
+    // 3. Closure — receives a real Illuminate\Database\Query\Builder. Safe for values
+    //    from user input; bindings are inlined via Laravel's own binding-substitution
+    //    logic (the same code behind Builder::toRawSql()), not string concatenation.
+    $table->partialUnique('slug', 'uniq_products_slug')
+        ->where(fn ($query) => $query->whereNull('deleted_at'));
+
+    // Non-unique conditional index — same three forms.
+    $table->partialIndex(['status', 'position'], 'idx_products_listing')
+        ->where(fn ($query) => $query->whereNull('deleted_at'));
 });
 ```
 
@@ -141,8 +152,9 @@ Schema::table('products', function (Blueprint $table) {
 });
 ```
 
-The `$whereRaw` argument is raw SQL, not parameterized — build it from fixed strings in your
-migration, never from user input.
+The raw-string forms (1 and 2) are **not parameterized** — build them from fixed strings in your
+migration, never from user input. Reach for the closure form (3) whenever a value in the predicate
+could come from outside your codebase.
 
 ### How this works without touching Laravel core
 
@@ -172,3 +184,28 @@ way to teach `PostgresGrammar`/`SQLiteGrammar` a new `compilePartialUnique` meth
 a hardcoded method lookup on the grammar class, which is exactly why the 3 rejected upstream PRs had
 to edit `PostgresGrammar.php`/`SQLiteGrammar.php`/`SqlServerGrammar.php` directly instead of shipping
 as a package. Grammar macros are the loophole that makes a package-only implementation possible.
+
+### Why the chained `->where(...)` form needed no third macro
+
+`addCommand()` returns a plain `Illuminate\Support\Fluent` — and `Fluent` doesn't declare a
+`where()` method of its own, so `->where(...)` chained onto it lands on `Fluent`'s own magic
+`__call()`, which just stores whatever was passed as the `where` attribute. That's the exact same
+`$command->where` property the 3-argument form sets directly — no extra registration needed, it
+falls out of how `Fluent` already works.
+
+This is also why `$table->unique(...)->where(...)` (chaining onto Laravel's *own* `unique()`)
+doesn't and can't work: `Blueprint::unique()` returns an `IndexDefinition`, whose command is named
+`'unique'`, dispatching to the real `compileUnique` — a method that already exists on
+`PostgresGrammar`/`SQLiteGrammar` and therefore can never be reached through `__call`/macro dispatch
+(PHP resolves a real declared method before ever consulting magic methods). A `where` attribute set
+on that command would be silently ignored by the native compiler. Reusing `unique()`'s own name was
+never on the table without editing Laravel core; `partialUnique` had to be a distinct command with
+its own compiler from the start.
+
+The closure form (`->where(fn ($query) => ...)`) builds the predicate with a real, disconnected
+`Illuminate\Database\Query\Builder`, compiles it via `compileWheres()`, then inlines the resulting
+bindings with `Grammar::substituteBindingsIntoRawSql()` — the same method backing
+`Builder::toRawSql()`. That's a real safety difference from the raw-string forms, not just a style
+choice: naive string interpolation (or even a hand-rolled `str_replace('?', ...)`) breaks on a value
+containing a literal quote or Postgres's `?`/`??` operators; `substituteBindingsIntoRawSql()` already
+handles both correctly, so this reuses it instead of re-implementing it.
