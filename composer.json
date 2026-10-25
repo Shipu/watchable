@@ -21,11 +21,11 @@
     },
     "require": {},
     "require-dev": {
-        "orchestra/testbench": "^9.0|^10.0",
-        "pestphp/pest": "^3.0",
-        "pestphp/pest-plugin-laravel": "^3.0"
+        "orchestra/testbench": "^9.0|^10.0|^11.0",
+        "pestphp/pest": "^3.0|^4.0",
+        "pestphp/pest-plugin-laravel": "^3.0|^4.0"
     },
-    "minimum-stability": "dev",
+    "minimum-stability": "stable",
     "config": {
         "allow-plugins": {
             "pestphp/pest-plugin": true
