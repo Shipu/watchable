@@ -31,6 +31,12 @@ trait HasModelEvents
     /**
      * Get the model events to record activity for.
      *
+     * Reads the default value of the model's $observables property via
+     * reflection instead of instantiating the model, since Laravel 13
+     * disallows constructing a model while that same class is still
+     * inside its own boot() cycle (this method is called from
+     * bootHasModelEvents(), itself called during Model::boot()).
+     *
      * @return array
      */
     protected static function getModelEvents()
@@ -39,6 +45,12 @@ trait HasModelEvents
             return collect(static::$recordEvents);
         }
 
-        return collect((new static)->getObservableEvents());
+        $defaults = (new ReflectionClass(static::class))->getDefaultProperties();
+
+        return collect(array_merge([
+            'retrieved', 'creating', 'created', 'updating', 'updated',
+            'saving', 'saved', 'restoring', 'restored', 'replicating',
+            'trashed', 'deleting', 'deleted', 'forceDeleting', 'forceDeleted',
+        ], $defaults['observables'] ?? []));
     }
 }
